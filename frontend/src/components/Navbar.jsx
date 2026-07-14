@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../utils/AuthContext";
 import {
@@ -13,6 +13,8 @@ import {
   SignOut,
   ListPlus,
   Gear,
+  List,
+  X,
 } from "@phosphor-icons/react";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -30,7 +32,11 @@ export default function Navbar() {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -38,7 +44,28 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    closeMobile();
+  }, [location.pathname, closeMobile]);
+
+  // Close mobile menu when viewport grows past md breakpoint
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 768) closeMobile();
+    };
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => window.removeEventListener("resize", onResize);
+  }, [closeMobile]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
   const handleLogout = async () => {
+    closeMobile();
     await logout();
     navigate("/login");
   };
@@ -50,7 +77,20 @@ export default function Navbar() {
         : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
     }`;
 
+  const mobileLinkClass = ({ isActive }) =>
+    `flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium transition-colors ${
+      isActive
+        ? "bg-accent text-accent-foreground"
+        : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+    }`;
+
+  const mobileItemClick = (to) => () => {
+    closeMobile();
+    navigate(to);
+  };
+
   return (
+    <>
     <header
       className={`sticky top-0 z-40 h-16 w-full border-b backdrop-blur transition-colors ${
         scrolled ? "border-border bg-background/80" : "border-transparent bg-background/40"
@@ -64,6 +104,7 @@ export default function Navbar() {
           <span className="text-base font-semibold tracking-tight">{t("common.appName")}</span>
         </Link>
 
+        {/* Desktop nav */}
         <nav className="hidden items-center gap-1 md:flex">
           <NavLink to="/" end className={navLinkClass}>
             <House className="h-4 w-4" />
@@ -81,7 +122,19 @@ export default function Navbar() {
           )}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        {/* Hamburger button — visible only below md */}
+        <button
+          type="button"
+          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-label={mobileOpen ? t("common.close") : t("nav.menu")}
+          aria-expanded={mobileOpen}
+        >
+          {mobileOpen ? <X className="h-5 w-5" /> : <List className="h-5 w-5" />}
+        </button>
+
+        {/* Desktop right-side controls — hidden below md */}
+        <div className="ml-auto hidden items-center gap-1.5 md:flex">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="gap-2">
@@ -131,5 +184,81 @@ export default function Navbar() {
         </div>
       </div>
     </header>
+
+      {/* Mobile menu overlay — sibling of header to escape its stacking context */}
+      {mobileOpen && (
+        <div className="animate-fade-in fixed inset-0 top-16 z-50 overflow-y-auto bg-background/95 backdrop-blur md:hidden">
+          <nav className="mx-auto max-w-7xl space-y-1 px-4 pt-2 pb-8">
+            <NavLink to="/" end className={mobileLinkClass} onClick={closeMobile}>
+              <House className="h-5 w-5" weight="duotone" />
+              {t("nav.dashboard")}
+            </NavLink>
+            <NavLink to="/recommendations" className={mobileLinkClass} onClick={closeMobile}>
+              <Sparkle className="h-5 w-5" weight="duotone" />
+              {t("nav.recommendations")}
+            </NavLink>
+            {user?.is_superuser && (
+              <NavLink to="/admin" className={mobileLinkClass} onClick={closeMobile}>
+                <Shield className="h-5 w-5" weight="duotone" />
+                {t("nav.admin")}
+              </NavLink>
+            )}
+
+            <div className="my-3 h-px bg-border" />
+
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              onClick={mobileItemClick("/upload")}
+            >
+              <UploadSimple className="h-5 w-5" weight="duotone" />
+              {t("upload.fromFile")}
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              onClick={mobileItemClick("/bulk-upload")}
+            >
+              <Files className="h-5 w-5" weight="duotone" />
+              {t("nav.bulkUpload")}
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              onClick={mobileItemClick("/upload?tab=spotify")}
+            >
+              <ListPlus className="h-5 w-5" weight="duotone" />
+              {t("upload.fromSpotify")}
+            </button>
+
+            <div className="my-3 h-px bg-border" />
+
+            <div className="flex items-center gap-4 px-4 py-3">
+              <LanguageSwitcher />
+              <ThemeToggle />
+            </div>
+
+            <div className="my-3 h-px bg-border" />
+
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              onClick={mobileItemClick("/settings")}
+            >
+              <Gear className="h-5 w-5" weight="duotone" />
+              {t("nav.settings")}
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              onClick={handleLogout}
+            >
+              <SignOut className="h-5 w-5" weight="duotone" />
+              {t("nav.logout")}
+            </button>
+          </nav>
+        </div>
+      )}
+    </>
   );
 }

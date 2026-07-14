@@ -696,6 +696,7 @@ def spotify_auth_login(
         "redirect_uri": settings.spotify_redirect_uri,
         "scope": _SPOTIFY_AUTH_SCOPES.strip(),
         "state": _secrets.token_urlsafe(16),
+        "show_dialog": "true",
     }
     url = f"https://accounts.spotify.com/authorize?{_urlencode(params)}"
     return {"url": url}

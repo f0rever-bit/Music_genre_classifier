@@ -239,7 +239,7 @@ export default function GlobalPlayer() {
           {/* Mobile Play & Close Controls (Hidden on md+) */}
           <div className="flex shrink-0 items-center gap-2 md:hidden">
             {isSpotify ? (
-              sdkError === "not_connected" ? (
+              (!sdkReady && !currentTrack?.src) ? (
                 <Link
                   to="/settings"
                   className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1DB954] text-white transition-transform hover:opacity-90 active:scale-95"
@@ -280,7 +280,7 @@ export default function GlobalPlayer() {
           {/* Desktop Play Button */}
           <div className="hidden shrink-0 md:block">
             {isSpotify ? (
-              sdkError === "not_connected" ? (
+              (!sdkReady && !currentTrack?.src) ? (
                 <Link
                   to="/settings"
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1DB954] text-white transition-transform hover:opacity-90 active:scale-95"

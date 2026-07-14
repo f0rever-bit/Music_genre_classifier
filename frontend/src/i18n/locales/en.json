@@ -36,7 +36,8 @@
     "language": "Language",
     "theme": "Theme",
     "light": "Light",
-    "dark": "Dark"
+    "dark": "Dark",
+    "menu": "Menu"
   },
   "auth": {
     "loginTitle": "Welcome back",
