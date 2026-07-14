@@ -100,6 +100,11 @@ export default function AnalyzePage() {
       autosize: true,
       xaxis: { gridcolor: gridAlpha, zerolinecolor: zeroAlpha, tickfont: { size: 10 } },
       yaxis: { gridcolor: gridAlpha, zerolinecolor: zeroAlpha, tickfont: { size: 10 } },
+      hoverlabel: {
+        bgcolor: dark ? "#18181b" : "#ffffff",
+        font: { color: dark ? "#e4e4e7" : "#09090b", family: "Geist Variable, sans-serif" },
+        bordercolor: dark ? "#27272a" : "#e4e4e7",
+      },
     };
   }, [theme]);
 
@@ -120,9 +125,11 @@ export default function AnalyzePage() {
         ],
         theta: ["Energy", "Valence", "Tempo", "Loudness", "Brightness", "ZCR"],
         fill: "toself",
+        hoveron: "points",
         line: { color: "#10b981", width: 2 },
         fillcolor: "rgba(16,185,129,0.18)",
         name: "profile",
+        hovertemplate: "<b>%{theta}</b><br>Value: %{r:.1%}<extra></extra>",
       },
     ];
   }, [features]);
@@ -153,6 +160,11 @@ export default function AnalyzePage() {
           linecolor: gridAlpha,
         },
       },
+      hoverlabel: {
+        bgcolor: dark ? "#18181b" : "#ffffff",
+        font: { color: dark ? "#e4e4e7" : "#09090b", family: "Geist Variable, sans-serif" },
+        bordercolor: dark ? "#27272a" : "#e4e4e7",
+      },
     };
   }, [theme]);
 
@@ -165,6 +177,7 @@ export default function AnalyzePage() {
         y: arr,
         marker: { color: "#10b981" },
         name: "mfcc",
+        hovertemplate: "<b>%{x}</b><br>Mean: %{y:.3f}<extra></extra>",
       },
     ];
   }, [features]);
@@ -179,6 +192,7 @@ export default function AnalyzePage() {
         y: arr,
         marker: { color: "#0ea5e9" },
         name: "chroma",
+        hovertemplate: "<b>Pitch %{x}</b><br>Intensity: %{y:.3f}<extra></extra>",
       },
     ];
   }, [features]);
@@ -218,14 +232,14 @@ export default function AnalyzePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="flex flex-wrap items-center justify-between gap-4"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
-        <div className="flex items-center gap-4">
-          <CoverArt src={track.cover_url} className="h-14 w-14 rounded-2xl" />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{track.title}</h1>
-            <p className="text-sm text-muted-foreground">{track.artist}</p>
-            <div className="mt-1 flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-4">
+          <CoverArt src={track.cover_url} className="h-14 w-14 shrink-0 rounded-2xl" />
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold tracking-tight">{track.title}</h1>
+            <p className="truncate text-sm text-muted-foreground">{track.artist}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <StatusBadge status={track.analysis_status} />
               {track.genre && (
                 <Badge variant="outline" className="pointer-events-none capitalize">
@@ -235,12 +249,12 @@ export default function AnalyzePage() {
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Button variant="outline" className="gap-2" onClick={() => playTrack(track)} disabled={!canPlay}>
             <Play className="h-4 w-4" />
             {t("analyze.playLocal")}
           </Button>
-            <Button className="gap-2" onClick={() => navigate(`/recommendations/${track.slug || musicId}`)}>
+          <Button className="gap-2" onClick={() => navigate(`/recommendations/${track.slug || musicId}`)}>
             <Sparkle className="h-4 w-4" />
             {t("analyze.recommendations")}
           </Button>

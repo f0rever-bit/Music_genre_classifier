@@ -101,7 +101,9 @@
     "moved": "Переміщено",
     "bulkDeleteConfirm": "Видалити {{count}} вибраних треків? Це не можна скасувати.",
     "folderCardCount": "{{count}} треків",
-    "allTracks": "Всі треки"
+    "allTracks": "Всі треки",
+    "bulkDeleteFailed": "{{count}} треків не вдалося видалити",
+    "bulkDeleteSuccess": "{{count}} треків видалено"
   },
   "upload": {
     "title": "Додати музику",
@@ -200,7 +202,12 @@
     "promote": "Просунути найкращий",
     "promoted": "Просунуто {{algorithm}}",
     "defaultAlgo": "За замовчуванням: {{algorithm}}",
-    "filterPlaceholder": "Фільтрувати результати…"
+    "filterPlaceholder": "Фільтрувати результати…",
+    "algo": {
+      "cosine": "Косинусна подібність",
+      "kmeans": "Кластери K-Means",
+      "rf": "Випадковий ліс"
+    }
   },
   "admin": {
     "title": "Адмін",

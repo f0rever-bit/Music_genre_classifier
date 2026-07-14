@@ -38,11 +38,7 @@ import {
 } from "../components/ui/table";
 import CoverArt from "../components/CoverArt";
 
-const ALGOS = [
-  { value: "1", label: "Cosine similarity" },
-  { value: "2", label: "K-Means clusters" },
-  { value: "3", label: "Random Forest" },
-];
+
 
 export default function RecommendationsPage() {
   const { t } = useTranslation();
@@ -56,6 +52,12 @@ export default function RecommendationsPage() {
   const [tracks, setTracks] = useState([]);
   const [sourceId, setSourceId] = useState("");
   const [algorithm, setAlgorithm] = useState("1");
+  const ALGOS = useMemo(() => [
+    { value: "1", label: t("recommend.algo.cosine", "Cosine similarity") },
+    { value: "2", label: t("recommend.algo.kmeans", "K-Means clusters") },
+    { value: "3", label: t("recommend.algo.rf", "Random Forest") },
+  ], [t]);
+
   const [limit, setLimit] = useState(10);
   const [recs, setRecs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,7 @@ export default function RecommendationsPage() {
 
   const [abStats, setAbStats] = useState(null);
   const [training, setTraining] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const loadTracks = useCallback(async () => {
     if (!user?.id) return;
@@ -164,6 +167,40 @@ export default function RecommendationsPage() {
     });
   }, [recs, recFilter]);
 
+  const spotifyTrackUris = useMemo(() => {
+    return filteredRecs
+      .map((rec) => {
+        const m = rec.recommended_music || rec.music || rec;
+        return m.external_uri || (m.external_id ? `spotify:track:${m.external_id}` : null);
+      })
+      .filter(Boolean);
+  }, [filteredRecs]);
+
+  const handleExport = async () => {
+    if (spotifyTrackUris.length === 0) return;
+    setExporting(true);
+    try {
+      const sourceTrack = tracks.find((t) => String(t.id) === sourceId);
+      const playlistName = `Recommendations for ${sourceTrack?.title || "Unknown"}`;
+      const res = await musicAPI.exportPlaylist(playlistName, spotifyTrackUris);
+      toast({
+        title: "Exported successfully!",
+        description: "Playlist created in your Spotify account.",
+      });
+      if (res.data?.playlist_url) {
+        window.open(res.data.playlist_url, "_blank");
+      }
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: e.response?.data?.detail || "An error occurred",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -208,7 +245,7 @@ export default function RecommendationsPage() {
               id="limit"
               type="number"
               min={1}
-              max={50}
+              max={100}
               value={limit}
               onChange={(e) => setLimit(Math.max(1, Number(e.target.value) || 1))}
             />
@@ -260,6 +297,15 @@ export default function RecommendationsPage() {
               <X className="h-3.5 w-3.5" />
             </button>
           )}
+        </div>
+      )}
+
+      {!loading && spotifyTrackUris.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <Button onClick={handleExport} disabled={exporting} variant="outline" className="gap-2 bg-[#1DB954]/10 text-[#1DB954] hover:bg-[#1DB954]/20 hover:text-[#1DB954] border-[#1DB954]/20">
+            {exporting ? <Spinner className="h-4 w-4 animate-spin" /> : <SpotifyLogo className="h-4 w-4" weight="fill" />}
+            {exporting ? "Exporting..." : `Export ${spotifyTrackUris.length} Tracks to Spotify`}
+          </Button>
         </div>
       )}
 

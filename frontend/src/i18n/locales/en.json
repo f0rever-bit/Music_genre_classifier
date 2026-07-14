@@ -101,7 +101,9 @@
     "moved": "Moved",
     "bulkDeleteConfirm": "Delete {{count}} selected tracks? This cannot be undone.",
     "folderCardCount": "{{count}} tracks",
-    "allTracks": "All tracks"
+    "allTracks": "All tracks",
+    "bulkDeleteFailed": "{{count}} tracks failed to delete",
+    "bulkDeleteSuccess": "{{count}} tracks deleted"
   },
   "upload": {
     "title": "Add music",
@@ -200,7 +202,12 @@
     "promote": "Promote best",
     "promoted": "Promoted {{algorithm}}",
     "defaultAlgo": "Default: {{algorithm}}",
-    "filterPlaceholder": "Filter results…"
+    "filterPlaceholder": "Filter results…",
+    "algo": {
+      "cosine": "Cosine similarity",
+      "kmeans": "K-Means clusters",
+      "rf": "Random Forest"
+    }
   },
   "admin": {
     "title": "Admin",

@@ -178,3 +178,11 @@
   border: 1px solid hsl(var(--primary) / 0.85);
   border-radius: 0.25rem;
 }
+.hoverlayer text { visibility: visible !important; opacity: 1 !important; }
+
+/* Plotly hovertext fix */
+.plotly .hovertext text {
+  opacity: 1 !important;
+  visibility: visible !important;
+  fill-opacity: 1 !important;
+}

@@ -26,6 +26,7 @@ from app.schemas.music import (
     SpotifyPlaylistRequest,
     SpotifyPlaylistImportResult,
     SpotifyPlaylistTrackResult,
+    SpotifyExportRequest,
 )
 from app.utils.auth import get_current_active_user
 from app.utils.slug import generate_unique_slug
@@ -681,7 +682,9 @@ _SPOTIFY_AUTH_SCOPES = (
     "user-modify-playback-state "
     "user-read-currently-playing "
     "playlist-read-private "
-    "playlist-read-collaborative"
+    "playlist-read-collaborative "
+    "playlist-modify-public "
+    "playlist-modify-private"
 )
 
 
@@ -1025,3 +1028,80 @@ def spotify_auth_disconnect(
         "Spotify disconnected for user_id=%s (rows=%s)", current_user.id, deleted
     )
     return {"ok": True, "disconnected": bool(deleted)}
+
+
+@router.post("/export-playlist")
+def export_spotify_playlist(
+    payload: SpotifyExportRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new Spotify playlist and add tracks to it."""
+    auth = (
+        db.query(SpotifyAuthModel)
+        .filter(SpotifyAuthModel.user_id == current_user.id)
+        .first()
+    )
+    if auth is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Spotify account not connected",
+        )
+    token = _ensure_token(auth, db)
+    import httpx
+    
+    # 1. Get user profile to get spotify_user_id
+    me_resp = httpx.get(
+        f"{SPOTIFY_API_BASE}/me",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
+    if me_resp.status_code != 200:
+        logger.error("Failed to fetch Spotify profile: %s", me_resp.text)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to get Spotify profile")
+    
+    spotify_user_id = me_resp.json().get("id")
+    if not spotify_user_id:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to get Spotify user ID")
+        
+    # 2. Create Playlist
+    create_resp = httpx.post(
+        f"{SPOTIFY_API_BASE}/me/playlists",
+        json={
+            "name": payload.name, 
+            "public": False, 
+            "description": "Created via Audio-Based Music Recommender"
+        },
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
+    
+    # Check if 403 Forbidden because of missing scope
+    if create_resp.status_code == 403:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Missing permission to create playlists. Please disconnect and reconnect your Spotify account in Settings."
+        )
+    if create_resp.status_code not in (200, 201):
+        logger.error("Failed to create Spotify playlist: %s", create_resp.text)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to create playlist")
+        
+    playlist_data = create_resp.json()
+    playlist_id = playlist_data["id"]
+    playlist_url = playlist_data.get("external_urls", {}).get("spotify")
+    
+    # 3. Add tracks in batches of 100
+    uris = payload.track_uris
+    for i in range(0, len(uris), 100):
+        batch = uris[i:i+100]
+        add_resp = httpx.post(
+            f"{SPOTIFY_API_BASE}/playlists/{playlist_id}/items",
+            json={"uris": batch},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if add_resp.status_code not in (200, 201):
+            logger.warning("Failed to add batch of tracks: %s", add_resp.text)
+            
+    logger.info("Exported playlist '%s' for user_id=%s", payload.name, current_user.id)
+    return {"ok": True, "playlist_id": playlist_id, "playlist_url": playlist_url}

@@ -131,3 +131,8 @@ class SpotifyPlaylistImportResult(BaseModel):
 class SpotifyPlayRequest(BaseModel):
     device_id: Optional[str] = None
     uri: Optional[str] = None
+
+
+class SpotifyExportRequest(BaseModel):
+    name: str
+    track_uris: list[str]

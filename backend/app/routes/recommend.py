@@ -71,7 +71,7 @@ def _record_impressions(db: Session, user_id: int, algorithm: int, source_music_
 async def get_recommendations(
     id_or_slug: str,
     background_tasks: BackgroundTasks,
-    limit: int = Query(default=10, ge=1, le=50),
+    limit: int = Query(default=10, ge=1, le=100),
     algorithm: int | None = Query(default=None, ge=1, le=3, description="1=cosine, 2=euclidean, 3=cluster-aware. Omit to use the promoted default algorithm (W4-2)."),
     ab_test: bool = Query(default=False, description="Ignore algorithm param and randomly assign one for A/B testing"),
     current_user: User = Depends(get_current_active_user),

@@ -4,6 +4,17 @@
 
 ---
 
+## 0.13. Week 4 — Export to Spotify 🚀
+
+Added the ability for users to export their AI-generated recommendations directly to their Spotify account as a playlist. This is a critical "WOW-factor" feature for the final defense.
+
+| # | Area | Change | Resolution |
+|---|------|--------|-----------|
+| 1 | Auth Scopes | Missing playlist creation scopes. | Added `playlist-modify-public` and `playlist-modify-private` to `_SPOTIFY_AUTH_SCOPES` in `backend/app/routes/spotify.py`. |
+| 2 | Backend | No endpoint to create playlists. | Added `POST /api/spotify/export-playlist` route taking `name` and `track_uris`. Uses the `SpotifyAuth` token to fetch the user profile, create a playlist via `POST /users/{user_id}/playlists`, and add tracks via `POST /playlists/{playlist_id}/tracks` in batches of 100. |
+| 3 | Frontend | Missing UI for export. | Added `exportPlaylist` to `musicAPI` in `frontend/src/services/api.js`. In `RecommendationsPage.jsx`, filtered recommendations to collect `external_uri` for Spotify tracks and added an "Export to Spotify" button that displays when valid tracks are present. Automatically opens the new playlist URL on success. |
+
+
 ## 0.6. Folders + Slug Routing 📁
 
 Added user-owned library folders and human-readable per-user slugs for
@@ -41,6 +52,7 @@ by timbre/tempo and ignored genre entirely (W4-1).
 |---|------|--------|-----------|
 | 1 | `audio_utils` | Feature vector had no genre information. | Added `GENRE_VOCABULARY` (25 canonical genres + "other"), `_normalize_genre` (case/synonym folding), `genre_to_vector` (fixed-length one-hot), and `extract_feature_vector_length`. `extract_feature_vector(features, genre=...)` now appends the genre block; omitting `genre` preserves the legacy 30-dim audio-only vector for `GenreClassifier`/`calculate_feature_similarity`. |
 | 2 | `ml_recommender` | Clusters ignored genre; stale on-disk models could crash after a dim change. | `_build_feature_matrix` threads `genre_by_music_id` (single query, no N+1). `fit_clusters`/`get_recommendations` inject genre. `load_models` discards a scaler whose `n_features_in_` != the live `feature_dim`. `auto_retrain_if_needed` force-refits when no usable model exists (e.g. after the W4-1 dimension bump). |
+| 3 | AI Tagging | `music.genre` is predicted by Gemini + iTunes fallback + GenreClassifier pipeline, but the frontend wasn't rendering it. | `DashboardPage.jsx`, `UploadPage.jsx`, `RecommendationsPage.jsx` now render the genre badge below the artist name. |
 
 **Tests**: added 6 tests (`test_audio_utils` × 5, `test_ml_recommender` × 1) —
 genre one-hot/synonyms/neutral, vector length, and genre-separated clustering.

@@ -99,6 +99,9 @@ export const musicAPI = {
       max_tracks: maxTracks,
     }),
 
+  exportPlaylist: (name, trackUris) =>
+    api.post('/spotify/export-playlist', { name, track_uris: trackUris }),
+
   /**
    * Poll a track's analysis status until it lands in a terminal state
    * (ready / error) or the timeout expires.

@@ -6,6 +6,8 @@ import { ToastProvider } from "./components/ui/toast";
 import { TooltipProvider } from "./components/ui/tooltip";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -20,6 +22,23 @@ import SettingsPage from "./pages/SettingsPage";
 import GlobalPlayer from "./components/GlobalPlayer";
 
 export default function App() {
+  const { i18n, t } = useTranslation();
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language || "en";
+    document.title = t("common.appName");
+    
+    const handleLangChange = (lng) => {
+      document.documentElement.lang = lng;
+      document.title = t("common.appName");
+    };
+    
+    i18n.on("languageChanged", handleLangChange);
+    return () => {
+      i18n.off("languageChanged", handleLangChange);
+    };
+  }, [i18n, i18n.language, t]);
+
   return (
     <ThemeProvider>
       <AuthProvider>

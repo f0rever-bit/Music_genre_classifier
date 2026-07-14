@@ -379,9 +379,9 @@ export default function DashboardPage() {
       setTracks((prev) => prev.filter((x) => !succeeded.includes(x.id)));
       setSelected(new Set());
       if (failed.length > 0) {
-        toast({ variant: "destructive", title: `${failed.length} tracks failed to delete` });
+        toast({ variant: "destructive", title: t("dashboard.bulkDeleteFailed", { count: failed.length }) });
       } else {
-        toast({ title: `${succeeded.length} track${succeeded.length !== 1 ? "s" : ""} deleted` });
+        toast({ title: t("dashboard.bulkDeleteSuccess", { count: succeeded.length }) });
       }
     } catch {
       toast({ variant: "destructive", title: t("common.error") });

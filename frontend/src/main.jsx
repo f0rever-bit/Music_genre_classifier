@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./i18n";
 import App from "./App";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Apply persisted CSS variable overrides immediately so the page
 // renders with the user-chosen theme (avoids flash of default theme).

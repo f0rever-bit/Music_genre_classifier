@@ -1,6 +1,7 @@
 import { Component } from 'react';
+import { withTranslation } from 'react-i18next';
 
-export class ErrorBoundary extends Component {
+class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -21,18 +22,19 @@ export class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const { t } = this.props;
       return (
         <div className="flex min-h-[60vh] items-center justify-center p-6">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 text-center">
-            <h2 className="text-lg font-semibold text-foreground">Something went wrong</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t("common.error") || "Something went wrong"}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {this.state.error?.message || 'An unexpected error occurred.'}
+              {this.state.error?.message || t("common.unknown") || "An unexpected error occurred."}
             </p>
             <button
               onClick={this.handleReset}
               className="mt-6 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform active:scale-[0.98]"
             >
-              Try again
+              {t("common.retry") || "Try again"}
             </button>
           </div>
         </div>
@@ -41,3 +43,5 @@ export class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
+
+export default withTranslation()(ErrorBoundary);
