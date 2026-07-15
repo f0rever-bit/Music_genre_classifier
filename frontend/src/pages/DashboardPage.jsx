@@ -343,7 +343,7 @@ export default function DashboardPage() {
   const handleAnalyze = async (track) => {
     setAnalyzingId(track.id);
     try {
-      await musicAPI.analyze(trackId(track));
+      await analyzeAPI.analyze(trackId(track));
       await musicAPI.waitForAnalysis(trackId(track), {
         onUpdate: (data) => {
           setTracks((prev) => prev.map((x) => (x.id === track.id ? { ...x, ...data } : x)));
