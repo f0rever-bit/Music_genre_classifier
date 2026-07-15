@@ -15,6 +15,7 @@ from pathlib import Path
 import musicbrainzngs
 from google import genai
 from google.genai import types
+import httpx
 
 from app.utils.audio_utils import GENRE_VOCABULARY, _normalize_genre
 

@@ -76,7 +76,7 @@ def test_temporal_features_exception(analyzer, dummy_audio):
 
 def test_tonal_features(analyzer, dummy_audio):
     y, sr = dummy_audio
-    with patch("app.services.audio_analyzer.librosa.feature.chroma_cqt") as m_chroma:
+    with patch("app.services.audio_analyzer.librosa.feature.chroma_stft") as m_chroma:
         chroma = np.zeros((12, 10))
         chroma[5, :] = 1.0
         m_chroma.return_value = chroma
@@ -87,7 +87,7 @@ def test_tonal_features(analyzer, dummy_audio):
 
 def test_tonal_features_exception(analyzer, dummy_audio):
     y, sr = dummy_audio
-    with patch("app.services.audio_analyzer.librosa.feature.chroma_cqt") as m_chroma:
+    with patch("app.services.audio_analyzer.librosa.feature.chroma_stft") as m_chroma:
         m_chroma.side_effect = RuntimeError("no chroma")
         result = analyzer._extract_tonal_features(y, sr)
         assert result["key"] is None

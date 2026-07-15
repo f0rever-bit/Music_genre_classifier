@@ -13,6 +13,13 @@ from app.routes import spotify_router
 from app.routes import folder_router
 from app.database import get_settings
 
+# Prevent numerical libraries from spawning multiple threads and starving the event loop
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 # Database schema is owned by Alembic — see backend/alembic/versions/.
 # Run `alembic upgrade head` before starting the server (done automatically
 # in Docker via the CMD in backend/Dockerfile).

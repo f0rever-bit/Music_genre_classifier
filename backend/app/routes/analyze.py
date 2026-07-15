@@ -41,6 +41,12 @@ async def analyze_music(
     #    request with a clear message instead of failing on a missing
     #    ``file_path`` deep inside librosa.
     if music.source == SOURCE_SPOTIFY:
+        # If a Spotify track is stuck in analyzing (e.g. from an aborted background task)
+        # but already has its base features, we can recover it by marking it ready.
+        if music.analysis_status == "analyzing" and music.audio_features:
+            music.analysis_status = "ready"
+            db.commit()
+            return music.audio_features
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This track's features come from the source catalog; "

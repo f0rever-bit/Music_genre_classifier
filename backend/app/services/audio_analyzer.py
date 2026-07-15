@@ -250,7 +250,7 @@ class AudioAnalyzer:
         """Extract key and mode."""
         try:
             # Compute chromagram
-            chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+            chroma = librosa.feature.chroma_stft(y=y, sr=sr)
 
             # Get the most prominent pitch class
             key = int(np.argmax(np.sum(chroma, axis=1)))
