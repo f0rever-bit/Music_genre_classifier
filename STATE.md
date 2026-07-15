@@ -4,6 +4,20 @@
 
 ---
 
+## 0.14. Cloud Deployment & Vercel/Render Networking (2026-07-16) ☁️
+
+Successfully deployed the entire stack to the cloud, bridging a split origin architecture.
+- **Frontend**: Vercel (`https://music-genre-classifier-zpts.vercel.app` or similar). Added `vercel.json` to handle React Router SPA rewrites and prevent 404s on direct navigation. Replaced hardcoded `/api` calls with `import.meta.env.VITE_API_URL` to route requests to Render.
+- **Backend**: Render (`https://music-genre-classifier-zpts.onrender.com`). Configured `ENVIRONMENT=production` to enable secure cross-domain cookies (`SameSite=None`, `Secure=True`). Removed legacy `passlib` to fix a 500 error on Python 3.10+ caused by `bcrypt>=4.0`.
+- **Database**: Neon Serverless PostgreSQL. Fully migrated schema and users.
+
+| # | Area | Change | Resolution |
+|---|------|--------|-----------|
+| 1 | Auth | `passlib` crashed on `pwd_context.verify` with `bcrypt>=4.0`. | Ripped out `passlib`, replaced with direct `bcrypt.checkpw` / `bcrypt.hashpw` in `app/utils/auth.py`. |
+| 2 | Auth | Cookies blocked across domains. | `app/routes/auth.py` sets `samesite="none"` and `secure=True` when `ENVIRONMENT=production`. |
+| 3 | Frontend | 404 on refresh/direct navigation on Vercel. | Added `frontend/vercel.json` with `/(.*)` rewrite to `/index.html`. |
+| 4 | Frontend | API calls went to Vercel origin. | Updated `api.js` to use `VITE_API_URL` environment variable. |
+
 ## 0.13. Week 4 — Export to Spotify 🚀
 
 Added the ability for users to export their AI-generated recommendations directly to their Spotify account as a playlist. This is a critical "WOW-factor" feature for the final defense.
@@ -758,7 +772,7 @@ backlog.  Each item references the original audit number for traceability.
 | W4-4 | **bcrypt upgrade (S3)** | Medium | ✅ **Done** — compat confirmed (`bcrypt 4.0.1` + `passlib 1.7.4`); `requirements.txt` pins `bcrypt>=4.0.1`; `get_password_hash`/`verify_password` guard the 72-byte limit (see §0.7). |
 | W4-5 | **DB triggers for `updated_at` (DB3)** | Medium | ✅ **Done** — migration `008`: PG `set_updated_at()` fn + BEFORE UPDATE triggers on `users`/`music`; dialect-guarded so SQLite (tests) keeps ORM `onupdate` (see §0.8). |
 | W4-6 | **Test coverage >80%** | Medium | ✅ **Done** — 173 tests, 82% coverage. 6 new test files: cache, storage, audio_utils_more, audio_analyzer_mock, genre_classifier + extensions to more_routes and ab_stats. audio_analyzer 42→99%, genre_classifier 22→94%, cache 50→85%, audio_utils 75→92%. See §0.9. |
-| W4-7 | **Cloud deploy** | Low | Railway/Render; wire log aggregation (Loki/ELK); `/api/ready` monitoring. |
+| W4-7 | **Cloud deploy** | Low | ✅ **Done** — Frontend on Vercel (`vercel.json` SPA routing), Backend on Render (`ENVIRONMENT=production` CORS/cookies), PostgreSQL on Neon. |
 | W4-8 | **Events table tuning** | Low | ✅ **Done** — `ix_ab_algorithm_time` composite index on `algorithm_events(algorithm, created_at)`; model + migration 009; 176 tests. See §0.10. |
 | W4-9 | **Frontend i18n + responsive** | Low | `react-i18next` (strings.js already centralised); improve mobile layout. |
 
