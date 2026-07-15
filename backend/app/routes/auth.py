@@ -28,12 +28,14 @@ def _set_token_cookie(response: Response, token: str) -> None:
     HTTPS and the NODE_ENV / ENVIRONMENT variable to toggle secure=True.
     """
     is_secure = settings.environment not in ("development", "test")
+    samesite_policy = "none" if is_secure else "lax"
+    
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite_policy,
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
@@ -119,11 +121,15 @@ def login(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(response: Response):
     """Clear the httpOnly JWT cookie."""
+    is_secure = settings.environment not in ("development", "test")
+    samesite_policy = "none" if is_secure else "lax"
+    
     response.delete_cookie(
         key="access_token",
         path="/",
         httponly=True,
-        samesite="lax",
+        secure=is_secure,
+        samesite=samesite_policy,
     )
 
 
