@@ -190,30 +190,39 @@ class AudioAnalyzer:
         """
         try:
             import warnings
+            import soundfile as sf
             
             # Get actual duration before clipping the load
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                actual_duration = None
-                try:
-                    actual_duration = librosa.get_duration(path=file_path)
-                except Exception as e:
-                    logger.warning(f"Could not get actual duration from path: {e}")
+            # Use soundfile directly instead of librosa.get_duration(path=...) 
+            # because librosa falls back to audioread which decodes the entire
+            # file into memory just to find the length, causing OOMs on 512MB RAM!
+            actual_duration = None
+            try:
+                info = sf.info(file_path)
+                actual_duration = info.duration
+            except Exception as e:
+                logger.warning(f"Could not get actual duration from path: {e}")
 
             # Load audio file (max 45 seconds to prevent OOM on free-tier hosting)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 y, sr = librosa.load(file_path, sr=self.sr, duration=45.0)
 
+            # Precompute spectrogram once to save CPU and Memory. 
+            # Doing this prevents each librosa.feature.* call from re-running STFT
+            # which caused multiple allocations of large complex matrices.
+            S = np.abs(librosa.stft(y))**2
+            S_db = librosa.power_to_db(S)
+
             # Extract all features
             features = {
                 **self._extract_temporal_features(y, sr),
-                **self._extract_tonal_features(y, sr),
+                **self._extract_tonal_features(y, sr, S=S),
                 **self._extract_energy_features(y, sr),
-                **self._extract_spectral_features(y, sr),
-                **self._extract_timbre_features(y, sr),
+                **self._extract_spectral_features(y, sr, S=S),
+                **self._extract_timbre_features(y, sr, S_db=S_db),
                 **self._extract_rhythm_features(y, sr),
-                **self._extract_harmony_features(y, sr),
+                **self._extract_harmony_features(y, sr, S=S),
             }
             
             # Override with actual duration
@@ -246,11 +255,11 @@ class AudioAnalyzer:
             logger.warning(f"Error extracting temporal features: {str(e)}")
             return {"tempo": None, "duration": None}
 
-    def _extract_tonal_features(self, y: np.ndarray, sr: int) -> Dict:
+    def _extract_tonal_features(self, y: np.ndarray, sr: int, S: Optional[np.ndarray] = None) -> Dict:
         """Extract key and mode."""
         try:
             # Compute chromagram
-            chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+            chroma = librosa.feature.chroma_stft(y=y, sr=sr, S=S)
 
             # Get the most prominent pitch class
             key = int(np.argmax(np.sum(chroma, axis=1)))
@@ -288,17 +297,17 @@ class AudioAnalyzer:
             logger.warning(f"Error extracting energy features: {str(e)}")
             return {"loudness": None, "energy": None}
 
-    def _extract_spectral_features(self, y: np.ndarray, sr: int) -> Dict:
+    def _extract_spectral_features(self, y: np.ndarray, sr: int, S: Optional[np.ndarray] = None) -> Dict:
         """Extract spectral centroid, bandwidth, and rolloff."""
         try:
             # Spectral centroid
-            spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
+            spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr, S=S)[0]
 
             # Spectral bandwidth
-            spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)[0]
+            spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr, S=S)[0]
 
             # Spectral rolloff
-            spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
+            spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr, S=S)[0]
 
             return {
                 "spectral_centroid_mean": float(np.mean(spectral_centroids)),
@@ -319,11 +328,11 @@ class AudioAnalyzer:
                 "spectral_rolloff_std": None
             }
 
-    def _extract_timbre_features(self, y: np.ndarray, sr: int) -> Dict:
+    def _extract_timbre_features(self, y: np.ndarray, sr: int, S_db: Optional[np.ndarray] = None) -> Dict:
         """Extract MFCC (Mel-frequency cepstral coefficients) for timbre."""
         try:
             # Extract MFCCs
-            mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=self.n_mfcc)
+            mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=self.n_mfcc, S=S_db)
 
             # Compute mean and std for each coefficient
             mfcc_mean = np.mean(mfccs, axis=1).tolist()
@@ -354,11 +363,11 @@ class AudioAnalyzer:
                 "zero_crossing_rate_std": None
             }
 
-    def _extract_harmony_features(self, y: np.ndarray, sr: int) -> Dict:
+    def _extract_harmony_features(self, y: np.ndarray, sr: int, S: Optional[np.ndarray] = None) -> Dict:
         """Extract chroma STFT features."""
         try:
             # Chroma STFT (12 pitch classes)
-            chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr)
+            chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr, S=S)
 
             # Compute mean and std for each pitch class
             chroma_mean = np.mean(chroma_stft, axis=1).tolist()
