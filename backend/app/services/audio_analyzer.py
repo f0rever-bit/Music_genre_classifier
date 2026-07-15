@@ -38,6 +38,7 @@ def run_analysis(music_id: int) -> bool:
     """
     db = SessionLocal()
     try:
+        logger.info("run_analysis: starting for music_id=%s", music_id)
         music = db.query(Music).filter(Music.id == music_id).first()
         if music is None:
             logger.warning("run_analysis: music_id=%s not found", music_id)
@@ -47,15 +48,22 @@ def run_analysis(music_id: int) -> bool:
         if music.audio_features is not None:
             music.analysis_status = ANALYSIS_STATUS_READY
             db.commit()
+            logger.info("run_analysis: music_id=%s already has features, skipping", music_id)
             return True
 
         music.analysis_status = ANALYSIS_STATUS_ANALYZING
         music.analysis_error = None
         db.commit()
+        logger.info("run_analysis: music_id=%s status set to analyzing", music_id)
 
         try:
+            if not music.file_path:
+                raise FileNotFoundError(
+                    "file_path is None — file may have been purged; re-upload required"
+                )
             analyzer = AudioAnalyzer()
             local_path = get_storage().get_local_path(music.file_path)
+            logger.info("run_analysis: music_id=%s resolved local_path=%s", music_id, local_path)
             features = analyzer.analyze(local_path)
             valence = analyzer.estimate_valence(features)
             if valence is not None:
@@ -119,8 +127,8 @@ def run_analysis(music_id: int) -> bool:
             # not pollute the database.
             music.analysis_error = (str(e) or type(e).__name__)[:500]
             db.commit()
-            # Still purge the file on failure — we never keep uploads.
-            _purge_local_file(music, db)
+            # Keep the file on failure so the user can retry via
+            # POST /api/analyze/{id} or the "Analyze" button.
             return False
 
     finally:

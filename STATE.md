@@ -1,6 +1,18 @@
 # Project Status - Audio-Based Music Recommender
 
-**Last Updated**: 2026-07-12
+**Last Updated**: 2026-07-16
+
+---
+
+## 0.16. Analysis Observability & Retry Safety (2026-07-16)
+
+Improved diagnostics and error recovery for the background analysis pipeline (`run_analysis`). Previously, the task could fail silently (no logs at key steps) and purge the uploaded file on error, making retries impossible.
+
+| # | Area | Change | Resolution |
+|---|------|--------|-----------|
+| 1 | Logging | No visibility into background task progress | Added `logger.info` at start, status transition, and file resolution steps in `run_analysis()`. |
+| 2 | Defensive | `file_path is None` crashed with no useful error | Added explicit check before `get_storage().get_local_path()` with a descriptive error message stored in `analysis_error`. |
+| 3 | Retry | Uploaded file purged even on analysis failure | Removed `_purge_local_file()` from the `except` block. File is now only purged on successful analysis, allowing the user to retry via the "Analyze" button. |
 
 ---
 
