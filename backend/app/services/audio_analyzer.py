@@ -189,8 +189,21 @@ class AudioAnalyzer:
             Exception: If audio file cannot be loaded or analyzed
         """
         try:
-            # Load audio file
-            y, sr = librosa.load(file_path, sr=self.sr)
+            import warnings
+            
+            # Get actual duration before clipping the load
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                actual_duration = None
+                try:
+                    actual_duration = librosa.get_duration(path=file_path)
+                except Exception as e:
+                    logger.warning(f"Could not get actual duration from path: {e}")
+
+            # Load audio file (max 45 seconds to prevent OOM on free-tier hosting)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                y, sr = librosa.load(file_path, sr=self.sr, duration=45.0)
 
             # Extract all features
             features = {
@@ -202,6 +215,10 @@ class AudioAnalyzer:
                 **self._extract_rhythm_features(y, sr),
                 **self._extract_harmony_features(y, sr),
             }
+            
+            # Override with actual duration
+            if actual_duration:
+                features["duration"] = float(actual_duration)
 
             fingerprint = compute_perceptual_fingerprint(y, sr)
             features["perceptual_fingerprint"] = fingerprint
