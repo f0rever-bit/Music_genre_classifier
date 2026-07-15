@@ -241,7 +241,9 @@ function SpotifyTab({ folders, onFoldersChange }) {
   const [importResult, setImportResult] = useState(null);
 
   useEffect(() => {
-    musicAPI.spotifyStatus().catch(() => setConfigured(false));
+    musicAPI.spotifyStatus()
+      .then((res) => setConfigured(res.data?.enabled ?? false))
+      .catch(() => setConfigured(false));
   }, []);
 
   const search = async () => {
