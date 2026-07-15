@@ -4,6 +4,18 @@
 
 ---
 
+## 0.15. Cloud Deployment Optimization & Memory Stability (2026-07-16) ☁️
+
+Stabilized the backend for deployment on Render's Free Tier (which imposes a strict 512MB RAM limit and severe CPU throttling).
+
+| # | Area | Change | Resolution |
+|---|------|--------|-----------|
+| 1 | Infrastructure | Render container randomly dying with `Child process died` | Identified as Out-Of-Memory (OOM) killed by Render due to spikes > 512MB RAM. |
+| 2 | Audio | OOM during duration check | `librosa.get_duration(path=...)` was falling back to `audioread`, decoding entire audio streams into memory. Replaced with `soundfile.info(file).duration`, reducing memory footprint for duration checks to 0 MB. |
+| 3 | Audio | CPU/Memory starvation during feature extraction | 6 separate feature functions (`chroma`, `centroid`, `mfcc`, etc.) were independently re-calculating the STFT matrix (a massive complex64 numpy array). Refactored `AudioAnalyzer.analyze` to precompute `S = np.abs(librosa.stft(y))**2` **once** and pass it as a `kwargs` to all downstream extractors. |
+| 4 | CPU Limits | Worker thread starvation | Added `OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`, and `MKL_NUM_THREADS=1` into `main.py` explicitly to prevent numpy/scipy from spawning multiple threads that compete for the 0.1 vCPU allocated by Render. |
+| 5 | Recovery | Tracks stuck in "Analyzing" | Modified `routes/analyze.py` to allow recovering tracks that successfully completed librosa feature extraction but failed to hit the final database commit (e.g. if the process died). |
+
 ## 0.14. Cloud Deployment & Vercel/Render Networking (2026-07-16) ☁️
 
 Successfully deployed the entire stack to the cloud, bridging a split origin architecture.
