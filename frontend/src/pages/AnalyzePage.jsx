@@ -73,20 +73,50 @@ export default function AnalyzePage() {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.all([
-      musicAPI.getById(musicId).catch(() => null),
-      analyzeAPI.getFeatures(musicId).catch(() => null),
-    ])
-      .then(([tr, fe]) => {
+    (async () => {
+      // 1. Resolve the track first so we have its slug/id and status.
+      let tr = null;
+      try {
+        const res = await musicAPI.getById(musicId);
+        tr = res?.data || null;
+      } catch {
+        tr = null;
+      }
+      if (!active) return;
+      setTrack(tr);
+
+      // 2. If analysis is still running, wait for it to finish before
+      //    asking for features.  Hitting /features too early 404s with
+      //    "Audio features not found" which is misleading while the
+      //    background job is still working.
+      if (tr && tr.analysis_status !== "ready" && tr.analysis_status !== "error") {
+        try {
+          tr = await musicAPI.waitForAnalysis(musicId, {
+            onUpdate: (u) => active && setTrack(u),
+          });
+        } catch {
+          tr = tr || null;
+        }
         if (!active) return;
-        setTrack(tr?.data || null);
-        setFeatures(fe?.data || null);
-      })
-      .finally(() => active && setLoading(false));
+        setTrack(tr);
+      }
+
+      // 3. Fetch features only once we know the terminal state.
+      if (tr && tr.analysis_status === "ready") {
+        try {
+          const fe = await analyzeAPI.getFeatures(musicId);
+          if (active) setFeatures(fe?.data || null);
+        } catch {
+          if (active) setFeatures(null);
+        }
+      } else if (tr && tr.analysis_status === "error") {
+        if (active) setError(tr.analysis_error || t("analyze.analysisFailed"));
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [musicId]);
+  }, [musicId, t]);
 
   const chartLayout = useMemo(() => {
     const dark = theme === "dark";
