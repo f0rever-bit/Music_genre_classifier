@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -97,15 +99,41 @@ app.include_router(admin_router)
 app.include_router(folder_router)
 
 
-@app.get("/")
-def root():
-    """Root endpoint - API health check."""
-    return {
-        "message": "Audio-Based Music Recommender API",
-        "version": "1.1.0",
-        "status": "running",
-        "docs": "/api/docs",
-    }
+# Serve static frontend in production if built
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+if not os.path.exists(STATIC_DIR):
+    STATIC_DIR = "/app/static"
+
+if os.path.exists(STATIC_DIR):
+    assets_dir = os.path.join(STATIC_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/")
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str = ""):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+        
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.isfile(index_path):
+            return FileResponse(index_path)
+        
+        raise HTTPException(status_code=404, detail="Not found")
+else:
+    @app.get("/")
+    def root():
+        """Root endpoint - API health check."""
+        return {
+            "message": "Audio-Based Music Recommender API",
+            "version": "1.1.0",
+            "status": "running",
+            "docs": "/api/docs",
+        }
 
 
 @app.get("/api/health")
