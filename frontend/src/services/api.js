@@ -40,10 +40,7 @@ export const authAPI = {
 /* ── Music ── */
 
 export const musicAPI = {
-  upload: (formData) =>
-    api.post('/music/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+  upload: (formData) => api.post('/music/upload', formData),
 
   getById: (id) => api.get(`/music/${id}`),
 
@@ -62,10 +59,7 @@ export const musicAPI = {
     return { succeeded, failed };
   },
 
-  autoTag: (formData) =>
-    api.post('/music/auto-tag', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+  autoTag: (formData) => api.post('/music/auto-tag', formData),
 
   aiStatus: () => api.get('/music/ai-status'),
 
