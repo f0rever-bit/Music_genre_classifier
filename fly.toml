@@ -4,6 +4,10 @@ primary_region = "iad"
 [build]
   dockerfile = "Dockerfile"
 
+[env]
+  ENVIRONMENT = "production"
+  DATABASE_URL = "sqlite:////app/app.db"
+
 [http_service]
   internal_port = 8080
   force_https = true
