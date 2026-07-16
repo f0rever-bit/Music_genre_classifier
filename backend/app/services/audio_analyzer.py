@@ -2,6 +2,7 @@ import librosa
 import numpy as np
 from typing import Dict, Optional
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from app.database import SessionLocal, get_settings
 from app.models.audio_features import AudioFeatures
@@ -65,7 +66,7 @@ def run_analysis(music_id: int) -> bool:
             analyzer = AudioAnalyzer()
             local_path = get_storage().get_local_path(music.file_path)
             logger.info("run_analysis: music_id=%s resolved local_path=%s", music_id, local_path)
-            features = analyzer.analyze(local_path)
+            features = _analyze_with_timeout(analyzer, local_path)
             valence = analyzer.estimate_valence(features)
             if valence is not None:
                 features["valence"] = valence
@@ -136,6 +137,30 @@ def run_analysis(music_id: int) -> bool:
         db.close()
 
 
+def _analyze_with_timeout(analyzer: "AudioAnalyzer", path: str, timeout: int = 120) -> Dict:
+    """Run feature extraction with a wall-clock timeout.
+
+    On cloud hosts ``librosa.load`` has occasionally been seen to hang with no
+    Python traceback (decoder/OOM).  Running it in a worker thread lets us
+    abort the *wait* after ``timeout`` so the track is recorded as 'error'
+    instead of being stranded in 'analyzing' forever.  (The underlying thread
+    may keep running until it unblocks, but it no longer blocks the request
+    lifecycle or leaves the DB in a stuck state.)
+    """
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(analyzer.analyze, path)
+        try:
+            return fut.result(timeout=timeout)
+        except TimeoutError:
+            logger.error(
+                "run_analysis: analysis timed out after %ss for %s", timeout, path
+            )
+            raise TimeoutError(
+                f"Audio analysis exceeded the {timeout}s limit (likely a decoder "
+                f"hang or out-of-memory in the audio backend)."
+            )
+
+
 def _purge_local_file(music: Music, db) -> None:
     """Delete the uploaded file from storage once it's no longer needed.
 
@@ -200,27 +225,39 @@ class AudioAnalyzer:
         try:
             import warnings
             import soundfile as sf
-            
+            import time as _time
+
+            _t0 = _time.monotonic()
+            logger.info("analyze: loading file=%s", file_path)
+
             # Get actual duration before clipping the load
-            # Use soundfile directly instead of librosa.get_duration(path=...) 
+            # Use soundfile directly instead of librosa.get_duration(path=...)
             # because librosa falls back to audioread which decodes the entire
             # file into memory just to find the length, causing OOMs on 512MB RAM!
             actual_duration = None
             try:
                 info = sf.info(file_path)
                 actual_duration = info.duration
+                logger.info("analyze: sf.info ok duration=%.2fs", actual_duration)
             except Exception as e:
-                logger.warning(f"Could not get actual duration from path: {e}")
+                logger.warning("Could not get actual duration from path: %s", e)
 
-            # Load audio file (max 45 seconds to prevent OOM on free-tier hosting)
+            # Load audio file (max 45 seconds to prevent OOM on free-tier hosting).
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
+                logger.info("analyze: calling librosa.load (sr=%s, duration=45.0)", self.sr)
                 y, sr = librosa.load(file_path, sr=self.sr, duration=45.0)
+            logger.info(
+                "analyze: librosa.load done in %.2fs (samples=%d, sr=%d)",
+                _time.monotonic() - _t0, len(y), sr,
+            )
 
-            # Precompute spectrogram once to save CPU and Memory. 
+            # Precompute spectrogram once to save CPU and Memory.
             # Doing this prevents each librosa.feature.* call from re-running STFT
             # which caused multiple allocations of large complex matrices.
+            logger.info("analyze: computing STFT")
             S = np.abs(librosa.stft(y))**2
+            logger.info("analyze: STFT done in %.2fs", _time.monotonic() - _t0)
 
             # Extract all features
             features = {
@@ -232,13 +269,15 @@ class AudioAnalyzer:
                 **self._extract_rhythm_features(y, sr),
                 **self._extract_harmony_features(y, sr, S=S),
             }
-            
+            logger.info("analyze: feature extraction done in %.2fs", _time.monotonic() - _t0)
+
             # Override with actual duration
             if actual_duration:
                 features["duration"] = float(actual_duration)
 
             fingerprint = compute_perceptual_fingerprint(y, sr)
             features["perceptual_fingerprint"] = fingerprint
+            logger.info("analyze: fingerprint done in %.2fs", _time.monotonic() - _t0)
 
             return features
 

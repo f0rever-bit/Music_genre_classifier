@@ -176,6 +176,8 @@
     "playSpotify": "Play on Spotify",
     "recommendations": "Get recommendations",
     "noData": "Analysis data is not available yet",
+    "loadError": "Could not load this track. The server may be temporarily unavailable — please retry.",
+    "analysisFailed": "Analysis failed for this track.",
     "spotifyNoWaveform": "Detailed audio profile is unavailable (Spotify did not provide an audio snippet)"
   },
   "recommendations": {

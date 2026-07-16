@@ -46,6 +46,7 @@ else:
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+
 # Create FastAPI app
 app = FastAPI(
     title="Audio-Based Music Recommender API",
@@ -97,6 +98,39 @@ app.include_router(recommend_router)
 app.include_router(ab_router)
 app.include_router(admin_router)
 app.include_router(folder_router)
+
+
+@app.on_event("startup")
+def _recover_stuck_on_boot():
+    """After a redeploy / machine wake (Fly auto-stop, Render free tier) any
+    analysis task that was mid-flight gets killed, leaving tracks stuck in
+    'analyzing'.  Reset them so they can be picked up again.  The actual
+    re-run happens lazily: the next request that touches the track, or a
+    manual POST /api/analyze/recover, will finish it.
+    """
+    try:
+        from app.database import SessionLocal
+        from app.models.music import (
+            Music,
+            ANALYSIS_STATUS_ANALYZING,
+            ANALYSIS_STATUS_PENDING,
+        )
+
+        db = SessionLocal()
+        try:
+            n = db.query(Music).filter(
+                Music.analysis_status == ANALYSIS_STATUS_ANALYZING
+            ).update(
+                {Music.analysis_status: ANALYSIS_STATUS_PENDING, Music.analysis_error: None},
+                synchronize_session=False,
+            )
+            db.commit()
+            if n:
+                logger.info("Boot recovery: reset %s stuck 'analyzing' tracks to 'pending'", n)
+        finally:
+            db.close()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Boot recovery skipped: %s", e)
 
 
 # Serve static frontend in production if built

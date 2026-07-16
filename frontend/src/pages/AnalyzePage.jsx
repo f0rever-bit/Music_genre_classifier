@@ -73,23 +73,60 @@ export default function AnalyzePage() {
     let active = true;
     setLoading(true);
     setError("");
+
+    // Retry transient failures (5xx / network).  Render's free tier and
+    // other cold-start proxies occasionally answer with 502/504, which is
+    // not a real error — one retry usually succeeds.
+    const fetchWithRetry = async (fn, attempts = 3) => {
+      let lastErr;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastErr = err;
+          const status = err?.response?.status;
+          // Don't retry hard client errors (4xx except 429).
+          if (status && status >= 400 && status < 500 && status !== 429) break;
+          await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+        }
+      }
+      throw lastErr;
+    };
+
     (async () => {
       // 1. Resolve the track first so we have its slug/id and status.
       let tr = null;
       try {
-        const res = await musicAPI.getById(musicId);
+        const res = await fetchWithRetry(() => musicAPI.getById(musicId));
         tr = res?.data || null;
-      } catch {
-        tr = null;
+      } catch (err) {
+        if (!active) return;
+        const status = err?.response?.status;
+        if (status === 404) {
+          setTrack(null);
+        } else {
+          setError(t("analyze.loadError"));
+        }
+        setLoading(false);
+        return;
       }
       if (!active) return;
       setTrack(tr);
 
-      // 2. If analysis is still running, wait for it to finish before
-      //    asking for features.  Hitting /features too early 404s with
-      //    "Audio features not found" which is misleading while the
-      //    background job is still working.
-      if (tr && tr.analysis_status !== "ready" && tr.analysis_status !== "error") {
+      // 2. Drive the analysis to completion.  A freshly uploaded track is
+      //    'pending' (background job may have been killed on a cloud host
+      //    restart) — kick it off.  While 'analyzing', just poll.  Only ask
+      //    for features once the status is terminal, so we never hit
+      //    /features before the AudioFeatures row exists (which 404s).
+      if (tr.analysis_status === "pending") {
+        try {
+          await analyzeAPI.analyze(musicId);
+        } catch {
+          // If the explicit analyze failed, fall through to polling — the
+          // server may still be working via its own recovery path.
+        }
+      }
+      if (tr.analysis_status !== "ready" && tr.analysis_status !== "error") {
         try {
           tr = await musicAPI.waitForAnalysis(musicId, {
             onUpdate: (u) => active && setTrack(u),
@@ -102,14 +139,14 @@ export default function AnalyzePage() {
       }
 
       // 3. Fetch features only once we know the terminal state.
-      if (tr && tr.analysis_status === "ready") {
+      if (tr.analysis_status === "ready") {
         try {
-          const fe = await analyzeAPI.getFeatures(musicId);
+          const fe = await fetchWithRetry(() => analyzeAPI.getFeatures(musicId));
           if (active) setFeatures(fe?.data || null);
         } catch {
           if (active) setFeatures(null);
         }
-      } else if (tr && tr.analysis_status === "error") {
+      } else if (tr.analysis_status === "error") {
         if (active) setError(tr.analysis_error || t("analyze.analysisFailed"));
       }
     })();

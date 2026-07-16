@@ -1,10 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import update as _sa_update
 import logging
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models.user import User
-from app.models.music import Music, SOURCE_SPOTIFY
+from app.models.music import (
+    Music,
+    SOURCE_SPOTIFY,
+    ANALYSIS_STATUS_ANALYZING,
+    ANALYSIS_STATUS_PENDING,
+)
 from app.models.audio_features import AudioFeatures
 from app.schemas.audio_features import AudioFeaturesResponse
 from app.utils.auth import get_current_active_user
@@ -110,3 +117,37 @@ def get_audio_features(
         )
 
     return features
+
+
+@router.post("/recover", response_model=dict)
+def recover_stuck_analysis(
+    max_age_seconds: int = 300,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Re-run analysis for tracks left stuck in ``analyzing``."""
+    cutoff = datetime.utcnow() - timedelta(seconds=max_age_seconds)
+    stuck = (
+        db.query(Music)
+        .filter(
+            Music.user_id == current_user.id,
+            Music.analysis_status == ANALYSIS_STATUS_ANALYZING,
+            Music.updated_at < cutoff,
+        )
+        .all()
+    )
+    recovered = 0
+    for music in stuck:
+        logger.info(
+            "recover: resetting stuck track music_id=%s (analyzing since before %s)",
+            music.id, cutoff.isoformat(),
+        )
+        music.analysis_status = ANALYSIS_STATUS_PENDING
+        music.analysis_error = None
+        db.commit()
+        try:
+            run_audio_analysis(music.id)
+            recovered += 1
+        except Exception as e:  # noqa: BLE001
+            logger.exception("recover: analysis failed for music_id=%s", music.id)
+    return {"checked": len(stuck), "recovered": recovered}
