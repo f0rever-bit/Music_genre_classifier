@@ -1,5 +1,5 @@
-app = "audio-music-recommender"
-primary_region = "iad"
+app = "music-genre-classifier"
+primary_region = "fra"
 
 [build]
   dockerfile = "Dockerfile"
