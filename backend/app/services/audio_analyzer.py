@@ -65,7 +65,8 @@ def run_analysis(music_id: int) -> bool:
                 raise FileNotFoundError(
                     "file_path is None — file may have been purged; re-upload required"
                 )
-            local_path = get_storage().get_local_path(music.file_path)
+            storage = get_storage()
+            local_path = storage.get_local_path(music.file_path)
             logger.info("run_analysis: music_id=%s resolved local_path=%s", music_id, local_path)
             # The file may be missing if the host uses an ephemeral disk and
             # the instance was restarted after upload (e.g. Render free tier).
@@ -130,6 +131,7 @@ def run_analysis(music_id: int) -> bool:
                 music_id, features.get("tempo"),
             )
             _purge_local_file(music, db)
+            storage.cleanup_local_path(local_path)
             return True
 
         except Exception as e:  # noqa: BLE001
@@ -139,6 +141,12 @@ def run_analysis(music_id: int) -> bool:
             # not pollute the database.
             music.analysis_error = (str(e) or type(e).__name__)[:500]
             _safe_commit(db, music)
+            # Best-effort cleanup of the temp copy (the original lives in the
+            # storage backend, so this is safe even on failure).
+            try:
+                storage.cleanup_local_path(local_path)
+            except Exception:  # noqa: BLE001
+                pass
             # Keep the file on failure so the user can retry via
             # POST /api/analyze/{id} or the "Analyze" button.
             return False

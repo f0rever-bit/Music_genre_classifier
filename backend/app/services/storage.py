@@ -30,6 +30,11 @@ class StorageBackend(ABC):
     def get_local_path(self, storage_path: str) -> str:
         """Return a path readable by librosa (may download to a temp dir)."""
 
+    @abstractmethod
+    def cleanup_local_path(self, local_path: str) -> None:
+        """Release any temp file returned by ``get_local_path`` (no-op for
+        backends that serve directly from disk)."""
+
 
 class LocalStorage(StorageBackend):
 
@@ -66,13 +71,31 @@ class LocalStorage(StorageBackend):
     def get_local_path(self, storage_path: str) -> str:
         return storage_path
 
+    def cleanup_local_path(self, local_path: str) -> None:
+        return None
+
 
 class S3Storage(StorageBackend):
 
     def __init__(self, bucket: str, region: str = "us-east-1", endpoint_url: Optional[str] = None) -> None:
         import boto3  # noqa: E402
+        from botocore.config import Config  # noqa: E402
+
+        # Cloudflare R2 (and other S3-compatible stores) require the modern
+        # signature version; without it upload_file/download_file fail with
+        # SignatureDoesNotMatch.  Credentials are read explicitly from the
+        # environment so they work regardless of how the platform injects them.
+        import os  # noqa: E402
+
         self.bucket = bucket
-        self._s3 = boto3.client("s3", region_name=region, endpoint_url=endpoint_url)
+        self._s3 = boto3.client(
+            "s3",
+            region_name=region,
+            endpoint_url=endpoint_url,
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            config=Config(signature_version="s3v4"),
+        )
 
     def save(self, file_obj: BinaryIO, filename: str, max_bytes: int) -> Tuple[str, str, int]:
         sha = hashlib.sha256()
@@ -110,6 +133,15 @@ class S3Storage(StorageBackend):
         tmp.close()
         self._s3.download_file(self.bucket, key, tmp_name)
         return tmp_name
+
+    def cleanup_local_path(self, local_path: str) -> None:
+        # The local path is a temp copy we downloaded for librosa — remove it
+        # so it doesn't leak on the (ephemeral) host disk.
+        if local_path and os.path.exists(local_path):
+            try:
+                os.unlink(local_path)
+            except OSError:
+                pass
 
 
 _backend: Optional[StorageBackend] = None
