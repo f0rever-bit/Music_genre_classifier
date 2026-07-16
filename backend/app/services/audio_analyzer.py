@@ -1,6 +1,7 @@
 import librosa
 import numpy as np
 import os
+import gc
 from typing import Dict, Optional
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -240,16 +241,20 @@ class AudioAnalyzer:
     - Harmony: chroma features
     """
 
-    def __init__(self, sr: int = 22050, n_mfcc: int = 20):
+    def __init__(self, sr: int = 16000, n_mfcc: int = 20, clip_duration: float = 30.0):
         """
         Initialize AudioAnalyzer.
 
         Args:
-            sr: Sample rate for audio loading (default: 22050 Hz)
+            sr: Sample rate for audio loading (default: 16000 Hz — lowered
+                from 22050 to fit Render's 512MB free-tier RAM budget).
             n_mfcc: Number of MFCC coefficients to extract (default: 20)
+            clip_duration: Seconds of audio to analyze (default: 30.0 — lowered
+                from 45.0 to cut peak memory usage of the STFT matrix).
         """
         self.sr = sr
         self.n_mfcc = n_mfcc
+        self.clip_duration = clip_duration
 
     def analyze(self, file_path: str) -> Dict:
         """
@@ -284,11 +289,19 @@ class AudioAnalyzer:
             except Exception as e:
                 logger.warning("Could not get actual duration from path: %s", e)
 
-            # Load audio file (max 45 seconds to prevent OOM on free-tier hosting).
+            # Load audio file (clipped to clip_duration to prevent OOM on
+            # free-tier hosting — 512MB RAM).  sr=16000 keeps the decoded
+            # array and the STFT matrix small.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                logger.info("analyze: calling librosa.load (sr=%s, duration=45.0)", self.sr)
-                y, sr = librosa.load(file_path, sr=self.sr, duration=45.0)
+                logger.info(
+                    "analyze: calling librosa.load (sr=%s, duration=%.1f, res_type=kaiser_fast)",
+                    self.sr, self.clip_duration,
+                )
+                y, sr = librosa.load(
+                    file_path, sr=self.sr, duration=self.clip_duration,
+                    res_type="kaiser_fast",
+                )
             logger.info(
                 "analyze: librosa.load done in %.2fs (samples=%d, sr=%d)",
                 _time.monotonic() - _t0, len(y), sr,
@@ -298,7 +311,7 @@ class AudioAnalyzer:
             # Doing this prevents each librosa.feature.* call from re-running STFT
             # which caused multiple allocations of large complex matrices.
             logger.info("analyze: computing STFT")
-            S = np.abs(librosa.stft(y))**2
+            S = np.abs(librosa.stft(y)) ** 2
             logger.info("analyze: STFT done in %.2fs", _time.monotonic() - _t0)
 
             # Extract all features
@@ -313,6 +326,11 @@ class AudioAnalyzer:
             }
             logger.info("analyze: feature extraction done in %.2fs", _time.monotonic() - _t0)
 
+            # Free the big matrices before fingerprinting to stay under the
+            # 512MB ceiling.  `y` is still needed for the fingerprint below.
+            del S
+            gc.collect()
+
             # Override with actual duration
             if actual_duration:
                 features["duration"] = float(actual_duration)
@@ -320,6 +338,9 @@ class AudioAnalyzer:
             fingerprint = compute_perceptual_fingerprint(y, sr)
             features["perceptual_fingerprint"] = fingerprint
             logger.info("analyze: fingerprint done in %.2fs", _time.monotonic() - _t0)
+
+            del y
+            gc.collect()
 
             return features
 

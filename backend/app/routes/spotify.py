@@ -158,8 +158,10 @@ def _analyze_spotify_preview_task(music_id: int, preview_url: str | None, title:
                 import warnings
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    y, sr = librosa.load(tmp.name, sr=22050)
-            
+                    y, sr = librosa.load(
+                        tmp.name, sr=16000, duration=30.0, res_type="kaiser_fast"
+                    )
+
             analyzer = AudioAnalyzer(sr=sr)
             mfcc_feat = analyzer._extract_timbre_features(y, sr)
             chroma_feat = analyzer._extract_harmony_features(y, sr)
