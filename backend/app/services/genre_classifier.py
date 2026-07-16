@@ -23,7 +23,7 @@ from app.utils.audio_utils import audio_features_to_dict, extract_feature_vector
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models")
+MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models"))
 
 
 class GenreClassifier:

@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column('hashed_password', sa.String(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
         sa.Column('is_superuser', sa.Boolean(), nullable=True, default=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint('id')
     )
@@ -46,7 +46,7 @@ def upgrade() -> None:
         sa.Column('file_path', sa.String(), nullable=False),
         sa.Column('file_size', sa.Integer(), nullable=True),
         sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('id')
@@ -73,14 +73,14 @@ def upgrade() -> None:
         sa.Column('spectral_bandwidth_std', sa.Float(), nullable=True),
         sa.Column('spectral_rolloff_mean', sa.Float(), nullable=True),
         sa.Column('spectral_rolloff_std', sa.Float(), nullable=True),
-        sa.Column('mfcc_mean', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('mfcc_std', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.Column('mfcc_mean', sa.JSON(none_as_null=True), nullable=True),
+        sa.Column('mfcc_std', sa.JSON(none_as_null=True), nullable=True),
         sa.Column('zero_crossing_rate_mean', sa.Float(), nullable=True),
         sa.Column('zero_crossing_rate_std', sa.Float(), nullable=True),
-        sa.Column('chroma_stft_mean', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('chroma_stft_std', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.Column('chroma_stft_mean', sa.JSON(none_as_null=True), nullable=True),
+        sa.Column('chroma_stft_std', sa.JSON(none_as_null=True), nullable=True),
         sa.Column('cluster_id', sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(['music_id'], ['music.id'], ),
+        sa.ForeignKeyConstraint(['music_id'], ['music.id'], name='fk_audio_features_music_id_music'),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('music_id')
     )
@@ -96,7 +96,7 @@ def upgrade() -> None:
         sa.Column('recommended_music_id', sa.Integer(), nullable=False),
         sa.Column('similarity_score', sa.Float(), nullable=False),
         sa.Column('algorithm', sa.Integer(), nullable=True, default=1),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.ForeignKeyConstraint(['source_music_id'], ['music.id'], ),
         sa.ForeignKeyConstraint(['recommended_music_id'], ['music.id'], ),

@@ -37,6 +37,7 @@ def run_analysis(music_id: int) -> bool:
     went wrong.
     """
     db = SessionLocal()
+    db.expire_on_commit = False
     try:
         logger.info("run_analysis: starting for music_id=%s", music_id)
         music = db.query(Music).filter(Music.id == music_id).first()
@@ -220,7 +221,6 @@ class AudioAnalyzer:
             # Doing this prevents each librosa.feature.* call from re-running STFT
             # which caused multiple allocations of large complex matrices.
             S = np.abs(librosa.stft(y))**2
-            S_db = librosa.power_to_db(S)
 
             # Extract all features
             features = {
@@ -228,7 +228,7 @@ class AudioAnalyzer:
                 **self._extract_tonal_features(y, sr, S=S),
                 **self._extract_energy_features(y, sr),
                 **self._extract_spectral_features(y, sr, S=S),
-                **self._extract_timbre_features(y, sr, S_db=S_db),
+                **self._extract_timbre_features(y, sr),
                 **self._extract_rhythm_features(y, sr),
                 **self._extract_harmony_features(y, sr, S=S),
             }
@@ -336,11 +336,11 @@ class AudioAnalyzer:
                 "spectral_rolloff_std": None
             }
 
-    def _extract_timbre_features(self, y: np.ndarray, sr: int, S_db: Optional[np.ndarray] = None) -> Dict:
+    def _extract_timbre_features(self, y: np.ndarray, sr: int) -> Dict:
         """Extract MFCC (Mel-frequency cepstral coefficients) for timbre."""
         try:
             # Extract MFCCs
-            mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=self.n_mfcc, S=S_db)
+            mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=self.n_mfcc)
 
             # Compute mean and std for each coefficient
             mfcc_mean = np.mean(mfccs, axis=1).tolist()

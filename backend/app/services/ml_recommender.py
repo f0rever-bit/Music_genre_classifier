@@ -32,7 +32,7 @@ from app.utils.audio_utils import (
 logger = logging.getLogger(__name__)
 
 # Directory for persisting trained models
-MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models")
+MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models"))
 
 
 class MLRecommender:

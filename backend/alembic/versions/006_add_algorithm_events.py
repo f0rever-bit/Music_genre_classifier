@@ -28,7 +28,7 @@ def upgrade() -> None:
         sa.Column("source_music_id", sa.Integer(), sa.ForeignKey("music.id"), nullable=False),
         sa.Column("recommended_music_id", sa.Integer(), sa.ForeignKey("music.id"), nullable=True),
         sa.Column("event_type", sa.String(20), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_algorithm_events_id"), "algorithm_events", ["id"], unique=False)
