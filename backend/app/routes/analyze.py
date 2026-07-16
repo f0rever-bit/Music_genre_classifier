@@ -60,10 +60,19 @@ async def analyze_music(
                    "local re-analysis is not available.",
         )
 
-    # 3. Delegate.  We do this synchronously in the request (so the
-    # caller gets the AudioFeatures back in the response).  The
-    # background-task path is used by the upload route for the common
-    # case of fresh uploads.
+    # 3. Guard against a double-analysis race: a background task kicked off
+    #    by the upload may still be running.  Re-running concurrently causes
+    #    a SQLAlchemy StaleDataError on commit, so refuse the second caller.
+    if music.analysis_status == ANALYSIS_STATUS_ANALYZING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Analysis is already in progress for this track.",
+        )
+
+    # 4. Delegate.  We do this synchronously in the request (so the
+    #    caller gets the AudioFeatures back in the response).  The
+    #    background-task path is used by the upload route for the common
+    #    case of fresh uploads.
     success = run_audio_analysis(music.id)
 
     if not success:
