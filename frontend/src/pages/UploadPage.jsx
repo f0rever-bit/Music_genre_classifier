@@ -137,6 +137,8 @@ function FileTab({ folders, onFoldersChange }) {
       if (folderId != null) {
         fd.append("folder_id", String(folderId));
       }
+      console.log('Uploading file:', file?.name, 'bytes:', file?.size);
+      console.log('FormData keys:', [...fd.keys()]);
       const res = await musicAPI.upload(fd);
       const id = res.data?.slug || res.data?.id;
       toast({ title: t("upload.uploadSuccess") });
@@ -145,6 +147,7 @@ function FileTab({ folders, onFoldersChange }) {
       }
       navigate("/");
     } catch (err) {
+      console.error('Upload error:', err);
       if (err.response?.status === 409) {
         toast({ variant: "destructive", title: t("upload.alreadyExists") });
       } else {
