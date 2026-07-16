@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
@@ -22,7 +22,7 @@ import FolderSelect from "../components/FolderSelect";
 
 function FileDropzone({ file, onFile, dragActive, setDragActive }) {
   const { t } = useTranslation();
-  const inputRef = useState(null);
+  const inputRef = useRef(null);
   return (
     <div
       onDragOver={(e) => {
